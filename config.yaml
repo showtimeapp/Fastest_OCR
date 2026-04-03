@@ -25,7 +25,7 @@ model:
 # --- PDF Pipeline ---
 pdf:
   # DPI for rasterizing PDF pages
-  render_dpi: 200
+  render_dpi: 150
   # Number of parallel rasterization workers (match vCPU count)
   rasterize_workers: 8
   # Image format for model input (JPEG is faster, PNG is lossless)
