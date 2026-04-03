@@ -10,6 +10,12 @@ Endpoints:
 
 from __future__ import annotations
 
+import json
+import zipfile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Query
+from fastapi.responses import JSONResponse, Response, FileResponse
+from fastapi.staticfiles import StaticFiles
+
 import asyncio
 import logging
 import shutil
@@ -90,6 +96,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Serve output files for download
+import os
+OUTPUT_DIR = "/tmp/glmocr_outputs"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+app.mount("/downloads", StaticFiles(directory=OUTPUT_DIR), name="downloads")
 
 @app.get("/ocr/health")
 async def health_check():
@@ -136,16 +147,9 @@ async def process_upload(
         description="Override output format: json, markdown, or both",
     ),
 ):
-    """
-    Process an uploaded file.
-
-    Accepts: .pdf, .doc, .docx, .txt
-    Returns: JSON with OCR results (and optionally markdown)
-    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 
-    # Validate extension
     suffix = Path(file.filename).suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
@@ -153,7 +157,6 @@ async def process_upload(
             detail=f"Unsupported file type: {suffix}. Supported: {sorted(SUPPORTED_EXTENSIONS)}",
         )
 
-    # Check file size
     max_bytes = _config.server.max_upload_size_mb * 1024 * 1024
     content = await file.read()
     if len(content) > max_bytes:
@@ -162,7 +165,6 @@ async def process_upload(
             detail=f"File too large. Max: {_config.server.max_upload_size_mb}MB",
         )
 
-    # Save to temp file
     request_id = uuid.uuid4().hex[:12]
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"glmocr_{request_id}_"))
 
@@ -170,12 +172,10 @@ async def process_upload(
         tmp_file = tmp_dir / file.filename
         tmp_file.write_bytes(content)
 
-        # Use override format or config default
         original_format = _config.output.format
         if output_format:
             _config.output.format = output_format
 
-        # Process
         doc_result, saved_files = await process_file(
             file_path=tmp_file,
             engine=_engine,
@@ -184,37 +184,42 @@ async def process_upload(
             output_dir=tmp_dir / "output",
         )
 
-        # Restore config
         _config.output.format = original_format
 
-        # Build response
+        # Save downloadable files
+        stem = Path(file.filename).stem
+        out_dir = Path(OUTPUT_DIR) / request_id
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        md_content = to_markdown(doc_result)
+        json_content = to_json(doc_result)
+
+        md_path = out_dir / f"{stem}.md"
+        json_path = out_dir / f"{stem}.json"
+        zip_path = out_dir / f"{stem}.zip"
+
+        md_path.write_text(md_content, encoding="utf-8")
+        json_path.write_text(
+            json.dumps(json_content, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(md_path, f"{stem}.md")
+            zf.write(json_path, f"{stem}.json")
+
+        base_url = f"/downloads/{request_id}"
         response = {
             "request_id": request_id,
-            "result": to_json(doc_result),
+            "downloads": {
+                "markdown": f"{base_url}/{stem}.md",
+                "json": f"{base_url}/{stem}.json",
+                "zip": f"{base_url}/{stem}.zip",
+            },
+            "result": json_content,
+            "markdown": md_content,
         }
 
-        # Include markdown if requested
-        if output_format in ("markdown", "both") or _config.output.format in ("markdown", "both"):
-            response["markdown"] = to_markdown(doc_result)
-
-        # If download requested, return files
-        if output_format == "markdown":
-            md_content = to_markdown(doc_result)
-            return Response(
-                content=md_content,
-                media_type="text/markdown",
-                headers={"Content-Disposition": f"attachment; filename={Path(file.filename).stem}.md"}
-            )
-        
-        if output_format == "json":
-            json_content = to_json(doc_result)
-            return Response(
-                content=json.dumps(json_content, ensure_ascii=False, indent=2),
-                media_type="application/json",
-                headers={"Content-Disposition": f"attachment; filename={Path(file.filename).stem}.json"}
-            )
-
-        # Default: return both in JSON response
         return JSONResponse(content=response)
 
     except Exception as exc:
@@ -222,9 +227,7 @@ async def process_upload(
         raise HTTPException(status_code=500, detail=str(exc))
 
     finally:
-        # Cleanup temp files
         shutil.rmtree(tmp_dir, ignore_errors=True)
-
 
 @app.post("/ocr/process-batch")
 async def process_batch(
