@@ -1,0 +1,17 @@
+[Unit]
+Description=GLM-OCR API Server
+After=network.target glmocr-vllm.service
+Requires=glmocr-vllm.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/glm-ocr-service
+ExecStart=/bin/bash /opt/glm-ocr-service/deploy/start_api.sh
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

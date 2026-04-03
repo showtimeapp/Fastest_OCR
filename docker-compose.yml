@@ -1,0 +1,69 @@
+# =============================================================================
+# Docker Compose — Full GLM-OCR Production Stack
+# Usage:  docker compose up -d
+# =============================================================================
+version: "3.8"
+
+services:
+  # --- vLLM Inference Backend ---
+  vllm:
+    image: vllm/vllm-openai:nightly
+    container_name: glmocr-vllm
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "8080:8080"
+    volumes:
+      - model-cache:/root/.cache/huggingface
+    environment:
+      - NVIDIA_TF32_OVERRIDE=1
+      - VLLM_ATTENTION_BACKEND=FLASH_ATTN
+      - HF_TOKEN=${HF_TOKEN:-}
+    command: >
+      --model zai-org/GLM-OCR
+      --host 0.0.0.0
+      --port 8080
+      --dtype float16
+      --gpu-memory-utilization 0.92
+      --max-model-len 8192
+      --max-num-seqs 16
+      --enable-prefix-caching
+      --enable-chunked-prefill
+      --disable-log-requests
+      --allowed-local-media-path /
+      --trust-remote-code
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  # --- GLM-OCR API Server ---
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: glmocr-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./output:/app/output
+    environment:
+      - GLM_OCR_CONFIG=/app/config.yaml
+    depends_on:
+      vllm:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  model-cache:
+    driver: local

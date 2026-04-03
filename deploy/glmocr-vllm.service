@@ -1,0 +1,18 @@
+[Unit]
+Description=vLLM GLM-OCR Inference Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/glm-ocr-service
+ExecStart=/bin/bash /opt/glm-ocr-service/deploy/start_vllm.sh
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+Environment=NVIDIA_TF32_OVERRIDE=1
+Environment=VLLM_ATTENTION_BACKEND=FLASH_ATTN
+
+[Install]
+WantedBy=multi-user.target

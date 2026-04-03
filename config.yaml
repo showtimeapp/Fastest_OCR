@@ -1,0 +1,70 @@
+# =============================================================================
+# GLM-OCR Production Service Configuration
+# Target: GCP L4 VM (24GB VRAM, 8+ vCPUs)
+# =============================================================================
+
+# --- Inference Backend ---
+backend:
+  # "vllm" or "sglang" — which server you're running
+  type: vllm
+  host: localhost
+  port: 8080
+  api_key: null               # set if using authenticated endpoint
+  connect_timeout: 300
+  request_timeout: 300
+  # max concurrent requests to the backend
+  max_concurrent_requests: 16
+
+# --- Model ---
+model:
+  name: zai-org/GLM-OCR
+  dtype: float16              # float16 | bfloat16 — use float16 on L4
+  max_new_tokens: 8192
+  temperature: 0.01           # near-deterministic for OCR
+
+# --- PDF Pipeline ---
+pdf:
+  # DPI for rasterizing PDF pages
+  render_dpi: 300
+  # Number of parallel rasterization workers (match vCPU count)
+  rasterize_workers: 8
+  # Image format for model input (JPEG is faster, PNG is lossless)
+  image_format: JPEG
+  jpeg_quality: 95
+  # Max image dimensions (pixels) — controls token count
+  max_pixels: 71372800
+  min_pixels: 12544
+  # Layout detection via PP-DocLayout-V3
+  enable_layout: true
+  # Batch size for layout-cropped regions sent to OCR
+  region_batch_size: 8
+  # Whether to save cropped region images for debugging
+  save_region_images: false
+
+# --- DOC/DOCX Handler ---
+doc:
+  # Use python-docx for .docx, mammoth for .doc
+  preserve_images: false
+
+# --- Output ---
+output:
+  # "json", "markdown", or "both"
+  format: both
+  # Directory for output files
+  output_dir: ./output
+  # Include page-level metadata in JSON
+  include_page_metadata: true
+  # Include bounding boxes in JSON (when layout is enabled)
+  include_bboxes: true
+
+# --- Server (FastAPI) ---
+server:
+  host: 0.0.0.0
+  port: 8000
+  workers: 1                  # uvicorn workers (1 is fine — async handles concurrency)
+  max_upload_size_mb: 500
+
+# --- Logging ---
+logging:
+  level: INFO                 # DEBUG enables profiling timers
+  format: "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
