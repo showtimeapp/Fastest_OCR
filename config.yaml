@@ -19,18 +19,18 @@ backend:
 model:
   name: zai-org/GLM-OCR
   dtype: float16              # float16 | bfloat16 — use float16 on L4
-  max_new_tokens: 8192
+  max_new_tokens: 4096
   temperature: 0.01           # near-deterministic for OCR
 
 # --- PDF Pipeline ---
 pdf:
   # DPI for rasterizing PDF pages
-  render_dpi: 300
+  render_dpi: 200
   # Number of parallel rasterization workers (match vCPU count)
   rasterize_workers: 8
   # Image format for model input (JPEG is faster, PNG is lossless)
   image_format: JPEG
-  jpeg_quality: 95
+  jpeg_quality: 85
   # Max image dimensions (pixels) — controls token count
   max_pixels: 71372800
   min_pixels: 12544

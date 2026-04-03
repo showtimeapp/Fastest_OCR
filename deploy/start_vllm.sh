@@ -40,7 +40,7 @@ exec vllm serve "${MODEL}" \
     --port "${PORT}" \
     --dtype float16 \
     --gpu-memory-utilization 0.92 \
-    --max-model-len 8192 \
+    --max-model-len 32768 \
     --max-num-seqs 16 \
     --enable-prefix-caching \
     --enable-chunked-prefill \

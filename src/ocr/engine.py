@@ -112,7 +112,7 @@ class OCREngine:
         data_uri = self._encode_image(image)
         return {
             "model": self.config.model.name,
-            "max_tokens": self.config.model.max_new_tokens,
+            "max_tokens": min(self.config.model.max_new_tokens, 4096),
             "temperature": self.config.model.temperature,
             "messages": [
                 {
