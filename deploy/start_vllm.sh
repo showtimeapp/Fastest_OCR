@@ -46,4 +46,5 @@ exec vllm serve "${MODEL}" \
     --enable-chunked-prefill \
     --allowed-local-media-path / \
     --trust-remote-code \
+    --served-model-name default \
     2>&1 | tee ./vllm.log
