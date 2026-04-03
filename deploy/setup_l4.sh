@@ -34,9 +34,6 @@ sudo apt-get update -qq
 
 # libgl1-mesa-glx was renamed to libgl1 in Ubuntu 24.04
 GL_PKG="libgl1"
-if apt-cache show libgl1-mesa-glx &>/dev/null 2>&1; then
-    GL_PKG="libgl1-mesa-glx"
-fi
 
 sudo apt-get install -y -qq \
     python3-venv python3-dev python3-pip \
