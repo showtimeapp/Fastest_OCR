@@ -44,7 +44,6 @@ exec vllm serve "${MODEL}" \
     --max-num-seqs 16 \
     --enable-prefix-caching \
     --enable-chunked-prefill \
-    --disable-log-requests \
     --allowed-local-media-path / \
     --trust-remote-code \
-    2>&1 | tee /var/log/vllm-glmocr.log
+    2>&1 | tee ./vllm.log
