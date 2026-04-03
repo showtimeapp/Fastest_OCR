@@ -17,7 +17,7 @@ backend:
 
 # --- Model ---
 model:
-  name: zai-org/GLM-OCR
+  name: default
   dtype: float16              # float16 | bfloat16 — use float16 on L4
   max_new_tokens: 4096
   temperature: 0.01           # near-deterministic for OCR
