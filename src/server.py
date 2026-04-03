@@ -29,6 +29,9 @@ from src.ocr.layout import LayoutDetector
 from src.ocr.postprocessor import to_json, to_markdown
 from src.router import detect_file_type, process_file, SUPPORTED_EXTENSIONS
 
+import json
+from fastapi.responses import JSONResponse, Response
+
 logger = logging.getLogger(__name__)
 
 # --- Global state ---
@@ -194,6 +197,24 @@ async def process_upload(
         if output_format in ("markdown", "both") or _config.output.format in ("markdown", "both"):
             response["markdown"] = to_markdown(doc_result)
 
+        # If download requested, return files
+        if output_format == "markdown":
+            md_content = to_markdown(doc_result)
+            return Response(
+                content=md_content,
+                media_type="text/markdown",
+                headers={"Content-Disposition": f"attachment; filename={Path(file.filename).stem}.md"}
+            )
+        
+        if output_format == "json":
+            json_content = to_json(doc_result)
+            return Response(
+                content=json.dumps(json_content, ensure_ascii=False, indent=2),
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename={Path(file.filename).stem}.json"}
+            )
+
+        # Default: return both in JSON response
         return JSONResponse(content=response)
 
     except Exception as exc:
